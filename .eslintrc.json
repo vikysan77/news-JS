@@ -18,13 +18,7 @@
         "browser": true,
         "node": true
     },
-    "ignorePatterns": [
-        "dist",
-        "node_modules",
-        "webpack.config.js",
-        "webpack.dev.config.js",
-        "webpack.prod.config.js"
-    ],
+    "ignorePatterns": ["dist", "node_modules", "webpack.config.js", "webpack.dev.config.js", "webpack.prod.config.js"],
     "rules": {
         "no-debugger": "off",
         "no-console": 0,
