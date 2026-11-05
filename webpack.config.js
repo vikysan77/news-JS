@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 const { merge } = require('webpack-merge');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
@@ -41,5 +42,11 @@ module.exports = ({ mode }) => {
     const isProductionMode = mode === 'prod';
     const envConfig = isProductionMode ? require('./webpack.prod.config') : require('./webpack.dev.config');
 
-    return merge(baseConfig, envConfig);
+    return merge(baseConfig, envConfig, {
+        plugins: [
+            new webpack.DefinePlugin({
+                'process.env.APP_MODE': JSON.stringify(isProductionMode ? 'production' : 'development'),
+            }),
+        ],
+    });
 };
