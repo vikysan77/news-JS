@@ -1,38 +1,64 @@
+import type { Article } from '../../../types';
+import { cloneTemplate, queryElement } from '../../../utils/dom';
 import './news.css';
 
+const IMAGE_PLACEHOLDER: string =
+    'data:image/svg+xml,' +
+    encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="100%" height="100%" fill="#142033"/><text x="50%" y="54%" fill="#8ef0d2" font-family="sans-serif" font-size="28" text-anchor="middle">News</text></svg>'
+    );
+
 class News {
-    draw(data) {
-        const news = data.length >= 10 ? data.filter((_item, idx) => idx < 10) : data;
-
-        const fragment = document.createDocumentFragment();
-        const newsItemTemp = document.querySelector('#newsItemTemp');
-
-        news.forEach((item, idx) => {
-            const newsClone = newsItemTemp.content.cloneNode(true);
-
-            if (idx % 2) newsClone.querySelector('.news__item').classList.add('alt');
-
-            newsClone.querySelector('.news__meta-photo').style.backgroundImage = `url(${
-                item.urlToImage || 'img/news_placeholder.jpg'
-            })`;
-            newsClone.querySelector('.news__meta-author').textContent = item.author || item.source.name;
-            newsClone.querySelector('.news__meta-date').textContent = item.publishedAt
-                .slice(0, 10)
-                .split('-')
-                .reverse()
-                .join('-');
-
-            newsClone.querySelector('.news__description-title').textContent = item.title;
-            newsClone.querySelector('.news__description-source').textContent = item.source.name;
-            newsClone.querySelector('.news__description-content').textContent = item.description;
-            newsClone.querySelector('.news__read-more a').setAttribute('href', item.url);
-
-            fragment.append(newsClone);
-        });
-
-        document.querySelector('.news').innerHTML = '';
-        document.querySelector('.news').appendChild(fragment);
+    public draw(articles: readonly Article[]): void {
+        const fragment: DocumentFragment = document.createDocumentFragment();
+        articles.forEach((item: Article) => fragment.append(this.createArticle(item)));
+        queryElement<HTMLElement>(document, '.story-list').replaceChildren(fragment);
     }
+
+    public showMessage(message: string): void {
+        const note: HTMLParagraphElement = document.createElement('p');
+        note.className = 'story-list__note';
+        note.textContent = message;
+        queryElement<HTMLElement>(document, '.story-list').replaceChildren(note);
+    }
+
+    public setTitle(title: string): void {
+        queryElement<HTMLElement>(document, '#story-title').textContent = title;
+    }
+
+    private createArticle(item: Article): DocumentFragment {
+        const fragment: DocumentFragment = cloneTemplate('story-item-template');
+        const photo: HTMLElement = queryElement<HTMLElement>(fragment, '.story__picture');
+        const imageUrl: string = (item.urlToImage ?? IMAGE_PLACEHOLDER).replace(/"/g, '%22');
+
+        photo.style.backgroundImage = `url("${imageUrl}"), url("${IMAGE_PLACEHOLDER}")`;
+        queryElement<HTMLElement>(fragment, '.story__outlet').textContent = item.source.name;
+        queryElement<HTMLElement>(fragment, '.story__headline').textContent = item.title;
+        queryElement<HTMLElement>(fragment, '.story__summary').textContent = item.description ?? '';
+        queryElement<HTMLElement>(fragment, '.story__author').textContent = item.author ?? item.source.name;
+
+        const date: HTMLTimeElement = queryElement<HTMLTimeElement>(fragment, '.story__date');
+        date.dateTime = item.publishedAt;
+        date.textContent = formatPublishedDate(item.publishedAt);
+
+        const link: HTMLAnchorElement = queryElement<HTMLAnchorElement>(fragment, '.story__open');
+        link.href = item.url;
+        return fragment;
+    }
+}
+
+function formatPublishedDate(publishedAt: string): string {
+    const date: Date = new Date(publishedAt);
+
+    if (Number.isNaN(date.getTime())) {
+        return publishedAt.slice(0, 10);
+    }
+
+    return new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    }).format(date);
 }
 
 export default News;
