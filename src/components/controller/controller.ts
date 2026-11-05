@@ -1,38 +1,56 @@
+import {
+    DataKind,
+    type ErrorCallback,
+    type NewsResponse,
+    type ResponseCallback,
+    type SourceListItem,
+    type SourcesResponse,
+} from '../../types';
 import AppLoader from './appLoader';
 
 class AppController extends AppLoader {
-    getSources(callback) {
-        super.getResp(
-            {
-                endpoint: 'sources',
-            },
-            callback
-        );
+    public getSources(callback: ResponseCallback<SourcesResponse>, onError?: ErrorCallback): void {
+        super.getResp(DataKind.Sources, {}, callback, onError);
     }
 
-    getNews(e, callback) {
-        let target = e.target;
-        const newsContainer = e.currentTarget;
+    public getNews(
+        event: Event,
+        onSelect: (item: SourceListItem) => void,
+        callback: ResponseCallback<NewsResponse>,
+        onError?: ErrorCallback
+    ): void {
+        const container: EventTarget | null = event.currentTarget;
+        const target: EventTarget | null = event.target;
 
-        while (target !== newsContainer) {
-            if (target.classList.contains('source__item')) {
-                const sourceId = target.getAttribute('data-source-id');
-                if (newsContainer.getAttribute('data-source') !== sourceId) {
-                    newsContainer.setAttribute('data-source', sourceId);
-                    super.getResp(
-                        {
-                            endpoint: 'everything',
-                            options: {
-                                sources: sourceId,
-                            },
-                        },
-                        callback
-                    );
-                }
-                return;
-            }
-            target = target.parentNode;
+        if (!(container instanceof HTMLElement) || !(target instanceof Element)) {
+            return;
         }
+
+        const sourceButton: HTMLButtonElement | null = target.closest<HTMLButtonElement>('.source-list__button');
+        const sourceId: string | undefined = sourceButton?.dataset.sourceId;
+        const sourceName: string = sourceButton?.textContent?.trim() ?? '';
+
+        if (!sourceButton || !sourceId || container.dataset.source === sourceId) {
+            return;
+        }
+
+        container.dataset.source = sourceId;
+        onSelect({ id: sourceId, name: sourceName });
+
+        super.getResp(
+            DataKind.Everything,
+            { sources: sourceId },
+            (data: NewsResponse) => {
+                if (container.dataset.source === sourceId) {
+                    callback(data);
+                }
+            },
+            (error: unknown) => {
+                if (onError && container.dataset.source === sourceId) {
+                    onError(error);
+                }
+            }
+        );
     }
 }
 

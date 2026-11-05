@@ -1,45 +1,68 @@
+import {
+    DataKind,
+    EndpointResponseMap,
+    HttpStatus,
+    RequestMethod,
+    type ErrorCallback,
+    type ResponseCallback,
+    type StoredCredentials,
+} from '../../types';
+
 class Loader {
-    constructor(baseLink, options) {
+    private readonly baseLink: string;
+    private readonly options: StoredCredentials;
+    public constructor(baseLink: string, options: StoredCredentials) {
         this.baseLink = baseLink;
         this.options = options;
     }
 
-    getResp(
-        { endpoint, options = {} },
-        callback = () => {
-            console.error('No callback for GET response');
-        }
-    ) {
-        this.load('GET', endpoint, callback, options);
+    public getResp<K extends DataKind>(
+        kind: K,
+        options: StoredCredentials,
+        callback: ResponseCallback<EndpointResponseMap[K]>,
+        onError?: ErrorCallback
+    ): void {
+        const endpoint: string = kind;
+        const url: string = this.makeUrl(options, endpoint);
+
+        fetch(url, { method: RequestMethod.Get })
+            .then((response: Response) => this.errorHandler(response))
+            .then((response: Response) => response.json())
+            .then((data: unknown) => {
+                callback(data as EndpointResponseMap[K]);
+            })
+            .catch((error: unknown) => {
+                console.error(error);
+                if (onError) {
+                    onError(error);
+                }
+            });
     }
 
-    errorHandler(res) {
-        if (!res.ok) {
-            if (res.status === 401 || res.status === 404)
-                console.log(`Sorry, but there is ${res.status} error: ${res.statusText}`);
-            throw Error(res.statusText);
+    private errorHandler(response: Response): Response {
+        if (!response.ok) {
+            if (response.status === HttpStatus.Unauthorized || response.status === HttpStatus.NotFound) {
+                console.log(`Sorry, but there is ${response.status} error: ${response.statusText}`);
+            }
+            throw new Error(response.statusText);
         }
 
-        return res;
+        return response;
     }
 
-    makeUrl(options, endpoint) {
-        const urlOptions = { ...this.options, ...options };
-        let url = `${this.baseLink}${endpoint}?`;
+    private makeUrl(options: StoredCredentials, endpoint: string): string {
+        const urlOptions: StoredCredentials = { ...this.options, ...options };
+        const searchParams: URLSearchParams = new URLSearchParams();
 
-        Object.keys(urlOptions).forEach((key) => {
-            url += `${key}=${urlOptions[key]}&`;
+        (Object.keys(urlOptions) as Array<keyof StoredCredentials>).forEach((key) => {
+            const value: string | undefined = urlOptions[key];
+            if (value) {
+                searchParams.set(key, value);
+            }
         });
 
-        return url.slice(0, -1);
-    }
-
-    load(method, endpoint, callback, options = {}) {
-        fetch(this.makeUrl(options, endpoint), { method })
-            .then(this.errorHandler)
-            .then((res) => res.json())
-            .then((data) => callback(data))
-            .catch((err) => console.error(err));
+        const query: string = searchParams.toString();
+        return query ? `${this.baseLink}${endpoint}?${query}` : `${this.baseLink}${endpoint}`;
     }
 }
 
